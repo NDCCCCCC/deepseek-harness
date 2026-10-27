@@ -18,9 +18,16 @@ jobs:
     steps:
       - name: Merge upstream master into fork master
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # SYNC_TOKEN: classic PAT with `repo` + `workflow` scopes.
+          # The default GITHUB_TOKEN has no `workflows` permission, so it cannot
+          # create or update `.github/workflows/*`; an upstream workflow change
+          # then makes merge-upstream fail with HTTP 422.
+          GH_TOKEN: ${{ secrets.SYNC_TOKEN || github.token }}
         run: |
           gh api --method POST \
             -H "Accept: application/vnd.github+json" \
             "/repos/${{ github.repository }}/merge-upstream" \
-            -f branch=master
+            -f branch=master || {
+              echo "::error::merge-upstream failed. If the message is 'refusing to allow a GitHub App to create or update workflow', set the SYNC_TOKEN secret (classic PAT with repo + workflow scopes)."
+              exit 1
+            }
